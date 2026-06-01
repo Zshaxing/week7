@@ -56,6 +56,15 @@ class ActionItemPatch(BaseModel):
         return self
 
 
+class ExtractRequest(BaseModel):
+    text: str = Field(..., min_length=1)
+
+
+class ExtractResponse(BaseModel):
+    items: list[str]
+    count: int
+
+
 class PaginatedMeta(BaseModel):
     total: int
     skip: int

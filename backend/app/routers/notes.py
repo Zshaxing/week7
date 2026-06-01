@@ -6,7 +6,16 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..models import Note
-from ..schemas import NoteCreate, NotePatch, NoteRead, PaginatedMeta, PaginatedNotes
+from ..schemas import (
+    ExtractRequest,
+    ExtractResponse,
+    NoteCreate,
+    NotePatch,
+    NoteRead,
+    PaginatedMeta,
+    PaginatedNotes,
+)
+from ..services.extract import extract_action_items
 from .common import apply_sort, paginate
 
 router = APIRouter(prefix="/notes", tags=["notes"])
@@ -43,6 +52,12 @@ def create_note(payload: NoteCreate, db: Session = Depends(get_db)) -> NoteRead:
     return NoteRead.model_validate(note)
 
 
+@router.post("/extract", response_model=ExtractResponse)
+def extract_from_text(payload: ExtractRequest) -> ExtractResponse:
+    items = extract_action_items(payload.text)
+    return ExtractResponse(items=items, count=len(items))
+
+
 @router.get("/{note_id}", response_model=NoteRead)
 def get_note(note_id: int, db: Session = Depends(get_db)) -> NoteRead:
     note = db.get(Note, note_id)
@@ -72,3 +87,12 @@ def delete_note(note_id: int, db: Session = Depends(get_db)) -> None:
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     db.delete(note)
+
+
+@router.post("/{note_id}/extract", response_model=ExtractResponse)
+def extract_from_note(note_id: int, db: Session = Depends(get_db)) -> ExtractResponse:
+    note = db.get(Note, note_id)
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    items = extract_action_items(note.content)
+    return ExtractResponse(items=items, count=len(items))
