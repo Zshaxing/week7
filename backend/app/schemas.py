@@ -78,7 +78,7 @@ class TagRead(BaseModel):
 
 
 class NoteTagsUpdate(BaseModel):
-    tag_ids: list[int] = Field(..., min_length=1)
+    tag_ids: list[int]
 
 
 class ExtractRequest(BaseModel):
