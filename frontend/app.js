@@ -8,8 +8,8 @@ async function loadNotes(params = {}) {
   const list = document.getElementById('notes');
   list.innerHTML = '';
   const query = new URLSearchParams(params);
-  const notes = await fetchJSON('/notes/?' + query.toString());
-  for (const n of notes) {
+  const body = await fetchJSON('/notes/?' + query.toString());
+  for (const n of body.items) {
     const li = document.createElement('li');
     li.textContent = `${n.title}: ${n.content}`;
     list.appendChild(li);
@@ -20,8 +20,8 @@ async function loadActions(params = {}) {
   const list = document.getElementById('actions');
   list.innerHTML = '';
   const query = new URLSearchParams(params);
-  const items = await fetchJSON('/action-items/?' + query.toString());
-  for (const a of items) {
+  const body = await fetchJSON('/action-items/?' + query.toString());
+  for (const a of body.items) {
     const li = document.createElement('li');
     li.textContent = `${a.description} [${a.completed ? 'done' : 'open'}]`;
     if (!a.completed) {
