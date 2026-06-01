@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class NoteCreate(BaseModel):
@@ -18,6 +18,7 @@ class NoteRead(BaseModel):
     content: str
     created_at: datetime
     updated_at: datetime
+    tag_ids: list[int] = []
 
 
 class NotePatch(BaseModel):
@@ -33,6 +34,7 @@ class NotePatch(BaseModel):
 
 class ActionItemCreate(BaseModel):
     description: str = Field(..., min_length=1)
+    note_id: int | None = None
 
 
 class ActionItemRead(BaseModel):
@@ -41,6 +43,7 @@ class ActionItemRead(BaseModel):
     id: int
     description: str
     completed: bool
+    note_id: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -54,6 +57,28 @@ class ActionItemPatch(BaseModel):
         if self.description is None and self.completed is None:
             raise ValueError("At least one field must be provided")
         return self
+
+
+class TagCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        return value.strip()
+
+
+class TagRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class NoteTagsUpdate(BaseModel):
+    tag_ids: list[int]
 
 
 class ExtractRequest(BaseModel):
