@@ -43,7 +43,8 @@ def test_notes_sorting(client):
 
 def test_action_items_pagination_and_sorting(client):
     for index in range(4):
-        client.post("/action-items/", json={"description": f"Task {index}"})
+        r = client.post("/action-items/", json={"description": f"Task {index}"})
+        assert r.status_code == 201
 
     open_response = client.get(
         "/action-items/",
