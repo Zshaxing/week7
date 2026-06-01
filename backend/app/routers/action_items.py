@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import ActionItem
+from ..models import ActionItem, Note
 from ..schemas import (
     ActionItemCreate,
     ActionItemPatch,
@@ -24,6 +24,7 @@ ACTION_ITEM_SORT_FIELDS = {"id", "description", "completed", "created_at", "upda
 def list_items(
     db: Session = Depends(get_db),
     completed: Optional[bool] = None,
+    note_id: Optional[int] = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     sort: str = Query("-created_at"),
@@ -31,6 +32,8 @@ def list_items(
     stmt = select(ActionItem)
     if completed is not None:
         stmt = stmt.where(ActionItem.completed.is_(completed))
+    if note_id is not None:
+        stmt = stmt.where(ActionItem.note_id == note_id)
 
     stmt = apply_sort(stmt, ActionItem, sort, ACTION_ITEM_SORT_FIELDS)
     rows, total = paginate(db, stmt, skip=skip, limit=limit)
@@ -42,7 +45,10 @@ def list_items(
 
 @router.post("/", response_model=ActionItemRead, status_code=201)
 def create_item(payload: ActionItemCreate, db: Session = Depends(get_db)) -> ActionItemRead:
-    item = ActionItem(description=payload.description, completed=False)
+    if payload.note_id is not None and db.get(Note, payload.note_id) is None:
+        raise HTTPException(status_code=400, detail="Linked note not found")
+
+    item = ActionItem(description=payload.description, completed=False, note_id=payload.note_id)
     db.add(item)
     db.flush()
     db.refresh(item)

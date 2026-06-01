@@ -5,13 +5,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Note
+from ..models import Note, Tag
 from ..schemas import (
     ExtractRequest,
     ExtractResponse,
     NoteCreate,
     NotePatch,
     NoteRead,
+    NoteTagsUpdate,
     PaginatedMeta,
     PaginatedNotes,
 )
@@ -21,6 +22,17 @@ from .common import apply_sort, paginate
 router = APIRouter(prefix="/notes", tags=["notes"])
 
 NOTE_SORT_FIELDS = {"id", "title", "created_at", "updated_at"}
+
+
+def serialize_note(note: Note) -> NoteRead:
+    return NoteRead(
+        id=note.id,
+        title=note.title,
+        content=note.content,
+        created_at=note.created_at,
+        updated_at=note.updated_at,
+        tag_ids=[tag.id for tag in note.tags],
+    )
 
 
 @router.get("/", response_model=PaginatedNotes)
@@ -38,7 +50,7 @@ def list_notes(
     stmt = apply_sort(stmt, Note, sort, NOTE_SORT_FIELDS)
     rows, total = paginate(db, stmt, skip=skip, limit=limit)
     return PaginatedNotes(
-        items=[NoteRead.model_validate(row) for row in rows],
+        items=[serialize_note(row) for row in rows],
         meta=PaginatedMeta(total=total, skip=skip, limit=limit),
     )
 
@@ -49,7 +61,7 @@ def create_note(payload: NoteCreate, db: Session = Depends(get_db)) -> NoteRead:
     db.add(note)
     db.flush()
     db.refresh(note)
-    return NoteRead.model_validate(note)
+    return serialize_note(note)
 
 
 @router.post("/extract", response_model=ExtractResponse)
@@ -63,7 +75,7 @@ def get_note(note_id: int, db: Session = Depends(get_db)) -> NoteRead:
     note = db.get(Note, note_id)
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
-    return NoteRead.model_validate(note)
+    return serialize_note(note)
 
 
 @router.patch("/{note_id}", response_model=NoteRead)
@@ -78,7 +90,7 @@ def patch_note(note_id: int, payload: NotePatch, db: Session = Depends(get_db)) 
     db.add(note)
     db.flush()
     db.refresh(note)
-    return NoteRead.model_validate(note)
+    return serialize_note(note)
 
 
 @router.delete("/{note_id}", status_code=204)
@@ -87,6 +99,23 @@ def delete_note(note_id: int, db: Session = Depends(get_db)) -> None:
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     db.delete(note)
+
+
+@router.put("/{note_id}/tags", response_model=NoteRead)
+def set_note_tags(note_id: int, payload: NoteTagsUpdate, db: Session = Depends(get_db)) -> NoteRead:
+    note = db.get(Note, note_id)
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    tags = db.execute(select(Tag).where(Tag.id.in_(payload.tag_ids))).scalars().all()
+    if len(tags) != len(set(payload.tag_ids)):
+        raise HTTPException(status_code=400, detail="One or more tag IDs are invalid")
+
+    note.tags = tags
+    db.add(note)
+    db.flush()
+    db.refresh(note)
+    return serialize_note(note)
 
 
 @router.post("/{note_id}/extract", response_model=ExtractResponse)
